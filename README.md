@@ -21,3 +21,33 @@ To start the server, run the following command:
 The server will start and listen on `http://localhost:8000` by default.
 
 
+## Endpoints
+
+### Search Endpoint
+
+This endpoint allows users to search for information based on company and topic.
+
+#### Request Body
+
+- `company` (text): The name of the company to search for.
+- `topic` (text): The topic related to the search.
+
+#### Response
+
+- Status: 200
+- Content-Type: application/json
+
+##### Example Response:
+
+```json
+{
+    "keywords": {
+        "1": [""],
+        "2": [""],
+        "3": [""],
+        "4": [""],
+        "5": [""]
+    },
+    "summary": ""
+}
+
