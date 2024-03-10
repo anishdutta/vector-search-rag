@@ -14,6 +14,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import concurrent.futures
 import tqdm
 from src.search.model import SearchResult
+from fastapi_cache.decorator import cache
+
+from src.utils.utils import cache_key_generator
 
 class Search_Service:
 
@@ -27,7 +30,8 @@ class Search_Service:
 
 
 
-    def search(self, company: str, topic: str)->SearchResult:
+    @cache(expire=60, key_builder=cache_key_generator)
+    async def search(self, company: str, topic: str)->SearchResult:
         file_name = company + '.pdf'
         texts = self.get_raw_pdf(file_name)
         dir_name = os.path.join(self.save_dir, file_name.split('.pdf')[0])
@@ -65,7 +69,7 @@ class Search_Service:
     def retrive_keywords(self,file_name:str,topic):
         chain = load_qa_chain(OpenAI(temperature=0), chain_type="stuff")
         embeddings = OpenAIEmbeddings()
-        query = f"List down multiple lists of keywords related to ${topic}, add mention each keyword sparated by commas."
+        query = f"List down all keywords related to ${topic}, add mention each keyword sparated by commas."
         db = FAISS.load_local(file_name,embeddings,allow_dangerous_deserialization=True)
         docs = db.similarity_search(query)
         keywords = chain.run(input_documents=docs, question=query)
