@@ -26,12 +26,12 @@ class Search_Service:
         self.output_directory = "./summaries"
         self.mongo_client = MongoClient(os.getenv("MONGO_URI"))
         self.db = self.mongo_client["admin"]
-        self.vector_collection = self.db["vectors"]
+        self.vector_collection = self.db["vectors"] # save as an index
 
 
 
     @cache(expire=60, key_builder=cache_key_generator)
-    async def search(self, company: str, topic: str)->SearchResult:
+    async def search(self, company: str, topic: str, question: str)->SearchResult:
         file_name = company + '.pdf'
         texts = self.get_raw_pdf(file_name)
         dir_name = os.path.join(self.save_dir, file_name.split('.pdf')[0])
@@ -45,7 +45,7 @@ class Search_Service:
         # Concurrently retrieve keywords and summary
         with concurrent.futures.ThreadPoolExecutor() as executor:
             keywords_future = executor.submit(self.retrive_keywords, dir_name, topic)
-            summary_future = executor.submit(self.retrive_summary, dir_name, topic)
+            summary_future = executor.submit(self.retrive_summary, dir_name, topic, question)
             
             keywords = keywords_future.result()
             summary = summary_future.result()
@@ -87,15 +87,14 @@ class Search_Service:
         print(keywords)
         return result
     
-    def retrive_summary(self,file_name:str,topic):
+    def retrive_summary(self,file_name:str,topic,question):
         chain = load_qa_chain(OpenAI(temperature=0), chain_type="stuff")
-        embeddings = OpenAIEmbeddings()
+        embeddings = OpenAIEmbeddings() #1536 * float(32)
         final_combine_prompt=f'''
         Please summarize the document:
         Provide a final summary of the entire document with these important points on ${topic}.
         Add a Generic Title,
-        Start the precise summary with an introduction and provide the
-        summary in number points for the
+        Start the precise summary with an introduction and provide the answer to this question : ${question}
         '''
         db = FAISS.load_local(file_name,embeddings,allow_dangerous_deserialization=True)
         docs = db.similarity_search(final_combine_prompt)
@@ -105,8 +104,8 @@ class Search_Service:
         return answer
 
     def create_vectors(self, texts, file_name:str)->any:
-        embeddings = OpenAIEmbeddings()
-        text_chunks = self.chunks(texts, 550) # adjust based on rate-limit set on open AI
+        embeddings = OpenAIEmbeddings() 
+        text_chunks = self.chunks(texts, 250) # adjust based on rate-limit set on open AI
         docsearch = None
         print(len(texts))
         for (index, chunk) in tqdm.tqdm(enumerate(text_chunks)):
